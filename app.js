@@ -51,8 +51,28 @@ const $ = (id) => document.getElementById(id);
 
 function showMessage(text, type = 'muted') {
   const box = $('admin-message');
+  if (!box) {
+    alert(text);
+    return;
+  }
   box.className = `result-box ${type}`;
   box.textContent = text;
+  box.style.display = 'block';
+}
+
+function updateAuthUI(user) {
+  const statusEl = $('auth-status');
+  const panelsEl = $('admin-panels');
+
+  if (statusEl) {
+    statusEl.textContent = user && user.email
+      ? `Signed in as ${user.email}`
+      : 'Not signed in';
+  }
+
+  if (panelsEl) {
+    panelsEl.classList.toggle('hidden', !user);
+  }
 }
 
 function playerScore(player) {
@@ -164,33 +184,37 @@ function updateSummaryCards() {
 async function fetchPlayers() {
   if (!supabaseClient) return localPlayers;
   const { data, error } = await supabaseClient.from('players').select('*').order('name');
-  if (error) return localPlayers;
-  return data;
+  if (error) {
+    console.error('Fetch players error:', error);
+    return localPlayers;
+  }
+  return data || localPlayers;
 }
 
 async function fetchPracticeMatches() {
   if (!supabaseClient) return localPracticeMatches;
   const { data, error } = await supabaseClient.from('practice_matches').select('*').order('match_date', { ascending: false });
-  if (error) return localPracticeMatches;
-  return data;
+  if (error) {
+    console.error('Fetch practice matches error:', error);
+    return localPracticeMatches;
+  }
+  return data || localPracticeMatches;
 }
 
 async function fetchExternalMatches() {
   if (!supabaseClient) return localExternalMatches;
   const { data, error } = await supabaseClient.from('external_matches').select('*').order('match_date', { ascending: false });
-  if (error) return localExternalMatches;
-  return data;
+  if (error) {
+    console.error('Fetch external matches error:', error);
+    return localExternalMatches;
+  }
+  return data || localExternalMatches;
 }
 
 function selectedPlayers(selectId) {
   return Array.from($(selectId).selectedOptions)
     .map((option) => playersCache[Number(option.value)])
     .filter(Boolean);
-}
-
-function updateAuthUI(user) {
-  $('auth-status').textContent = user ? `Signed in as ${user.email}` : 'Not signed in';
-  $('admin-panels').classList.toggle('hidden', !user);
 }
 
 async function loadAllData() {
@@ -217,28 +241,47 @@ async function loginAdmin() {
     return;
   }
 
-  const email = $('admin-email').value.trim();
-  const password = $('admin-password').value.trim();
+  const email = ($('admin-email')?.value || '').trim();
+  const password = ($('admin-password')?.value || '').trim();
 
   if (!email || !password) {
     showMessage('Enter your admin email and password first.', 'error');
     return;
   }
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
+    console.error('Login failed:', error);
     showMessage(`Login failed: ${error.message}`, 'error');
+    updateAuthUI(null);
     return;
   }
 
-  updateAuthUI(data.user);
+  const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+
+  if (sessionError) {
+    console.error('Session read failed after login:', sessionError);
+    showMessage('Login succeeded, but the session could not be read.', 'error');
+    return;
+  }
+
+  const user = sessionData?.session?.user || null;
+  updateAuthUI(user);
   showMessage('Login successful. You can now use the admin forms.', 'success');
 }
 
 async function logoutAdmin() {
   if (!supabaseClient) return;
-  await supabaseClient.auth.signOut();
+
+  const { error } = await supabaseClient.auth.signOut();
+
+  if (error) {
+    console.error('Logout failed:', error);
+    showMessage(`Logout failed: ${error.message}`, 'error');
+    return;
+  }
+
   updateAuthUI(null);
   showMessage('You have been logged out.', 'muted');
 }
@@ -262,9 +305,19 @@ async function insertRow(table, row) {
     return false;
   }
 
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const user = sessionData?.session?.user || null;
+
+  if (!user) {
+    showMessage('You must log in first.', 'error');
+    updateAuthUI(null);
+    return false;
+  }
+
   const { error } = await supabaseClient.from(table).insert(row);
 
   if (error) {
+    console.error(`Insert into ${table} failed:`, error);
     showMessage(`Could not save to ${table}: ${error.message}`, 'error');
     return false;
   }
@@ -340,10 +393,17 @@ async function init() {
     return;
   }
 
-  const { data } = await supabaseClient.auth.getSession();
-  updateAuthUI(data.session?.user || null);
+  const { data, error } = await supabaseClient.auth.getSession();
+
+  if (error) {
+    console.error('Initial session read failed:', error);
+    updateAuthUI(null);
+  } else {
+    updateAuthUI(data?.session?.user || null);
+  }
 
   supabaseClient.auth.onAuthStateChange((_event, session) => {
+    console.log('Auth state changed:', _event, session);
     updateAuthUI(session?.user || null);
   });
 }
