@@ -35,6 +35,8 @@ const hasSupabaseConfig = Boolean(config.SUPABASE_URL && config.SUPABASE_ANON_KE
 const supabaseClient = hasSupabaseConfig ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
 
 let playersCache = [...localPlayers];
+let homeTeam = [];
+let awayTeam = [];
 let practiceCache = [...localPracticeMatches];
 let externalCache = [...localExternalMatches];
 
@@ -167,27 +169,88 @@ function renderPlayers(players) {
     </tr>
   `).join('');
 
-  const homeLineup = $('home-lineup');
-  const awayLineup = $('away-lineup');
-
-  homeLineup.innerHTML = '';
-  awayLineup.innerHTML = '';
+  homeTeam = [];
+  awayTeam = [];
 
   players.forEach((p, i) => {
-    const option = document.createElement('option');
-    option.value = i;
-    option.textContent = `${p.name} (${p.position})`;
-
-    if (i % 2 === 0) {
-      homeLineup.appendChild(option);
-    } else {
-      awayLineup.appendChild(option);
-    }
+    if (i % 2 === 0) homeTeam.push(p);
+    else awayTeam.push(p);
   });
 
+  renderLineups();
   $('players-count').textContent = players.length;
+}
 
-  enableLineupMoving();
+function renderLineups() {
+  const homeBox = $('home-lineup');
+  const awayBox = $('away-lineup');
+
+  homeBox.innerHTML = '';
+  awayBox.innerHTML = '';
+
+  homeTeam.forEach(player => {
+    homeBox.appendChild(createPlayerCard(player));
+  });
+
+  awayTeam.forEach(player => {
+    awayBox.appendChild(createPlayerCard(player));
+  });
+
+  enableDragAndDrop();
+}
+
+function createPlayerCard(player) {
+  const div = document.createElement('div');
+  div.className = 'player-card';
+  div.draggable = true;
+  div.dataset.id = player.id;
+
+  div.textContent = `${player.name} (${player.position})`;
+
+  return div;
+}
+
+function enableDragAndDrop() {
+  const players = document.querySelectorAll('.player-card');
+
+  players.forEach(player => {
+    player.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('playerId', player.dataset.id);
+    });
+  });
+
+  ['home-lineup', 'away-lineup'].forEach(id => {
+    const box = $(id);
+
+    box.addEventListener('dragover', e => {
+      e.preventDefault();
+    });
+
+    box.addEventListener('drop', e => {
+      e.preventDefault();
+      const playerId = Number(e.dataTransfer.getData('playerId'));
+
+      movePlayer(playerId, id);
+    });
+  });
+}
+
+function movePlayer(playerId, targetTeam) {
+  const player = playersCache.find(p => p.id === playerId);
+  if (!player) return;
+
+  // remove from both teams first
+  homeTeam = homeTeam.filter(p => p.id !== playerId);
+  awayTeam = awayTeam.filter(p => p.id !== playerId);
+
+  // add to target
+  if (targetTeam === 'home-lineup') {
+    homeTeam.push(player);
+  } else {
+    awayTeam.push(player);
+  }
+
+  renderLineups();
 }
 
 function renderPractice(matches) {
@@ -271,13 +334,7 @@ async function loadAllData() {
 }
 
 function selectedPlayers(selectId) {
-  const select = $(selectId);
-
-  if (!select) return [];
-
-  return Array.from(select.options)
-    .map((option) => playersCache[Number(option.value)])
-    .filter(Boolean);
+  return selectId === 'home-lineup' ? homeTeam : awayTeam;
 }
 
 function autoFillPracticeLineups() {
