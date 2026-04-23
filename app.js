@@ -60,17 +60,27 @@ function updateAuthUI(user) {
 
 function playerScore(player) {
   const w = positionWeights[player.position] || positionWeights.CM;
-  return player.pace * w.pace + player.shooting * w.shooting + player.passing * w.passing + player.dribbling * w.dribbling + player.defending * w.defending + player.physical * w.physical + 100 * w.base;
-}
 
-function teamStrength(players) {
-  if (!players.length) return 0;
-  const avg = players.reduce((sum, p) => sum + playerScore(p), 0) / players.length;
-  const hasKeeper = players.some((p) => p.position === 'GK');
-  const defenders = players.filter((p) => ['CB', 'LB', 'RB', 'CDM'].includes(p.position)).length;
-  const attackers = players.filter((p) => ['CAM', 'LW', 'RW', 'ST'].includes(p.position)).length;
-  const midfielders = players.filter((p) => ['CM', 'CDM', 'CAM'].includes(p.position)).length;
-  return avg + (defenders >= 2 && attackers >= 2 && midfielders >= 1 ? 2.5 : 0) + (hasKeeper ? 3 : 0);
+  const base =
+    player.pace * w.pace +
+    player.shooting * w.shooting +
+    player.passing * w.passing +
+    player.dribbling * w.dribbling +
+    player.defending * w.defending +
+    player.physical * w.physical +
+    100 * w.base;
+
+  let performanceBoost = 0;
+
+  if (
+    player.last_score !== null &&
+    player.last_score !== undefined &&
+    player.last_score !== ''
+  ) {
+    performanceBoost = (Number(player.last_score) - 5) * 2;
+  }
+
+  return base + performanceBoost;
 }
 
 function softmax3(home, draw, away) {
@@ -79,18 +89,69 @@ function softmax3(home, draw, away) {
   return exps.map((value) => value / sum);
 }
 
+function teamStrength(players) {
+  if (!players.length) return 0;
+
+  const scores = players.map(playerScore);
+  const avg = scores.reduce((a, b) => a + b, 0) / players.length;
+
+  const hasGK = players.some(p => p.position === 'GK');
+  const defenders = players.filter(p => ['CB','LB','RB'].includes(p.position)).length;
+  const midfielders = players.filter(p => ['CM','CDM','CAM'].includes(p.position)).length;
+  const attackers = players.filter(p => ['LW','RW','ST'].includes(p.position)).length;
+
+  let structureScore = 0;
+
+  if (hasGK) structureScore += 5;
+  if (defenders >= 2) structureScore += 4;
+  if (midfielders >= 2) structureScore += 3;
+  if (attackers >= 1) structureScore += 2;
+
+  if (!hasGK) structureScore -= 8;
+
+  const diversity = new Set(players.map(p => p.position)).size;
+  const chemistry = diversity >= 5 ? 2 : 0;
+
+  return avg + structureScore + chemistry;
+}
+
 function predictMatch(homePlayers, awayPlayers) {
   const hs = teamStrength(homePlayers);
   const as = teamStrength(awayPlayers);
-  const diff = (hs - as) / 12;
-  const [pHome, pDraw, pAway] = softmax3(diff + 0.18, -Math.abs(diff) * 0.35, -diff);
+
+  const diff = (hs - as) / 10;
+
+  const homeRaw = 1 / (1 + Math.exp(-diff));
+  const awayRaw = 1 - homeRaw;
+  const drawRaw = Math.max(0.15, 1 - Math.abs(diff));
+
+  const total = homeRaw + awayRaw + drawRaw;
+
   return {
-    homeStrength: hs.toFixed(1), awayStrength: as.toFixed(1),
-    pHome: (pHome * 100).toFixed(1), pDraw: (pDraw * 100).toFixed(1), pAway: (pAway * 100).toFixed(1)
+    homeStrength: hs.toFixed(1),
+    awayStrength: as.toFixed(1),
+    pHome: ((homeRaw / total) * 100).toFixed(1),
+    pDraw: ((drawRaw / total) * 100).toFixed(1),
+    pAway: ((awayRaw / total) * 100).toFixed(1)
   };
 }
 
 function sortByDateDesc(items, key = 'match_date') { return [...items].sort((a, b) => new Date(b[key]) - new Date(a[key])); }
+
+function enableLineupMoving() {
+  const home = $('home-lineup');
+  const away = $('away-lineup');
+
+  if (!home || !away) return;
+
+  home.ondblclick = () => {
+    Array.from(home.selectedOptions).forEach(option => away.appendChild(option));
+  };
+
+  away.ondblclick = () => {
+    Array.from(away.selectedOptions).forEach(option => home.appendChild(option));
+  };
+}
 
 function renderPlayers(players) {
   if (exists('players-body')) {
@@ -102,6 +163,7 @@ function renderPlayers(players) {
     const options = players.map((p, i) => `<option value="${i}">${p.name} (${p.position})</option>`).join('');
     $('home-lineup').innerHTML = options;
     $('away-lineup').innerHTML = options;
+    enableLineupMoving();
   }
   if (exists('players-count')) $('players-count').textContent = players.length;
   if (exists('admin-players-list')) {
