@@ -17,6 +17,12 @@ const localExternalMatches = [
   { id: 2, match_date: '2026-04-12', opponent_name: 'CF Sample', venue: 'Away', our_score: 1, opponent_score: 2, competition: 'Friendly', notes: 'Tough away fixture' }
 ];
 
+const localGoalScorers = [
+  { id: 1, match_type: 'practice', match_id: 1, player_name: 'Ahmed', goals: 2 },
+  { id: 2, match_type: 'practice', match_id: 1, player_name: 'Carlos', goals: 1 },
+  { id: 3, match_type: 'external', match_id: 1, player_name: 'Rafa', goals: 1 }
+];
+
 const positionWeights = {
   GK:  { pace: 0.05, shooting: 0.01, passing: 0.14, dribbling: 0.02, defending: 0.28, physical: 0.10, base: 0.40 },
   CB:  { pace: 0.10, shooting: 0.03, passing: 0.12, dribbling: 0.05, defending: 0.40, physical: 0.20, base: 0.10 },
@@ -30,8 +36,6 @@ const positionWeights = {
   ST:  { pace: 0.18, shooting: 0.30, passing: 0.10, dribbling: 0.18, defending: 0.02, physical: 0.16, base: 0.06 }
 };
 
-
-
 const currentLang = document.documentElement.lang && document.documentElement.lang.startsWith('es') ? 'es' : 'en';
 const i18n = {
   en: {
@@ -41,6 +45,7 @@ const i18n = {
     noPlayers: 'No players yet.',
     noPractice: 'No practice matches yet.',
     noClub: 'No club matches yet.',
+    noScorers: 'No goal scorers recorded yet.',
     loginFailed: 'Login failed',
     loginSuccess: 'Login successful. You can now manage club data.',
     logoutSuccess: 'You have been logged out.',
@@ -57,7 +62,10 @@ const i18n = {
     strength: 'Strength',
     probabilities: 'Probabilities',
     win: 'win',
-    draw: 'Draw'
+    draw: 'Draw',
+    playerSaved: 'Player saved.',
+    practiceSaved: 'Practice match saved.',
+    clubSaved: 'Club match saved.'
   },
   es: {
     signedInAs: 'Sesión iniciada como',
@@ -66,6 +74,7 @@ const i18n = {
     noPlayers: 'Todavía no hay jugadores.',
     noPractice: 'Todavía no hay partidos de entrenamiento.',
     noClub: 'Todavía no hay partidos del club.',
+    noScorers: 'Todavía no hay goleadores registrados.',
     loginFailed: 'Error al iniciar sesión',
     loginSuccess: 'Inicio de sesión correcto. Ya puedes gestionar los datos del club.',
     logoutSuccess: 'Has cerrado sesión.',
@@ -82,7 +91,10 @@ const i18n = {
     strength: 'Fuerza',
     probabilities: 'Probabilidades',
     win: 'gana',
-    draw: 'Empate'
+    draw: 'Empate',
+    playerSaved: 'Jugador guardado.',
+    practiceSaved: 'Partido de entrenamiento guardado.',
+    clubSaved: 'Partido del club guardado.'
   }
 };
 const txt = (key) => (i18n[currentLang] && i18n[currentLang][key]) || i18n.en[key] || key;
@@ -96,6 +108,7 @@ let homeTeam = [];
 let awayTeam = [];
 let practiceCache = [...localPracticeMatches];
 let externalCache = [...localExternalMatches];
+let goalScorersCache = [...localGoalScorers];
 
 const $ = (id) => document.getElementById(id);
 const exists = (id) => Boolean($(id));
@@ -122,12 +135,12 @@ function playerScore(player) {
   const w = positionWeights[player.position] || positionWeights.CM;
 
   const base =
-    player.pace * w.pace +
-    player.shooting * w.shooting +
-    player.passing * w.passing +
-    player.dribbling * w.dribbling +
-    player.defending * w.defending +
-    player.physical * w.physical +
+    Number(player.pace || 0) * w.pace +
+    Number(player.shooting || 0) * w.shooting +
+    Number(player.passing || 0) * w.passing +
+    Number(player.dribbling || 0) * w.dribbling +
+    Number(player.defending || 0) * w.defending +
+    Number(player.physical || 0) * w.physical +
     100 * w.base;
 
   let performanceBoost = 0;
@@ -141,12 +154,6 @@ function playerScore(player) {
   }
 
   return base + performanceBoost;
-}
-
-function softmax3(home, draw, away) {
-  const exps = [home, draw, away].map(Math.exp);
-  const sum = exps.reduce((a, b) => a + b, 0);
-  return exps.map((value) => value / sum);
 }
 
 function teamStrength(players) {
@@ -196,7 +203,9 @@ function predictMatch(homePlayers, awayPlayers) {
   };
 }
 
-function sortByDateDesc(items, key = 'match_date') { return [...items].sort((a, b) => new Date(b[key]) - new Date(a[key])); }
+function sortByDateDesc(items, key = 'match_date') {
+  return [...items].sort((a, b) => new Date(b[key]) - new Date(a[key]));
+}
 
 function splitPlayersEvenly(players) {
   homeTeam = [];
@@ -359,6 +368,42 @@ function renderExternal(matches) {
   }
 }
 
+function renderScorersChart(scorers) {
+  if (!exists('scorers-chart')) return;
+
+  const totals = new Map();
+
+  scorers.forEach((row) => {
+    const name = String(row.player_name || '').trim();
+    const goals = Number(row.goals || 0);
+    if (!name || goals <= 0) return;
+    totals.set(name, (totals.get(name) || 0) + goals);
+  });
+
+  const rows = Array.from(totals.entries())
+    .map(([name, goals]) => ({ name, goals }))
+    .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name))
+    .slice(0, 10);
+
+  if (!rows.length) {
+    $('scorers-chart').innerHTML = `<p class="muted">${txt('noScorers')}</p>`;
+    return;
+  }
+
+  const maxGoals = Math.max(...rows.map(row => row.goals));
+
+  $('scorers-chart').innerHTML = rows.map((row) => {
+    const width = Math.max(8, (row.goals / maxGoals) * 100);
+    return `
+      <div class="bar-row">
+        <div class="bar-label">${row.name}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+        <div class="bar-value">${row.goals}</div>
+      </div>
+    `;
+  }).join('');
+}
+
 function updateSummaryCards() {
   const all = [...practiceCache.map((m) => ({ date: m.match_date, text: `${m.home_team} ${m.home_score}-${m.away_score} ${m.away_team}` })), ...externalCache.map((m) => ({ date: m.match_date, text: `Associació Futbol Veterans la Devesa ${m.our_score}-${m.opponent_score} ${m.opponent_name}` }))].sort((a, b) => new Date(b.date) - new Date(a.date));
   if (exists('latest-result')) $('latest-result').textContent = all.length ? all[0].text : '-';
@@ -375,7 +420,13 @@ async function loadAllData() {
   playersCache = await fetchRows('players', localPlayers, 'name', true);
   practiceCache = await fetchRows('practice_matches', localPracticeMatches, 'match_date', false);
   externalCache = await fetchRows('external_matches', localExternalMatches, 'match_date', false);
-  renderPlayers(playersCache); renderPractice(practiceCache); renderExternal(externalCache); updateSummaryCards();
+  goalScorersCache = await fetchRows('goal_scorers', localGoalScorers, 'created_at', false);
+
+  renderPlayers(playersCache);
+  renderPractice(practiceCache);
+  renderExternal(externalCache);
+  renderScorersChart(goalScorersCache);
+  updateSummaryCards();
 }
 
 function selectedPlayers(selectId) {
@@ -407,8 +458,17 @@ async function logoutAdmin() {
   showMessage(txt('logoutSuccess'), 'muted');
 }
 
-function formToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
-function castNumericFields(obj, fields) { const copy = { ...obj }; fields.forEach((field) => { if (copy[field] !== undefined) copy[field] = Number(copy[field]); }); return copy; }
+function formToObject(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+function castNumericFields(obj, fields) {
+  const copy = { ...obj };
+  fields.forEach((field) => {
+    if (copy[field] !== undefined && copy[field] !== '') copy[field] = Number(copy[field]);
+  });
+  return copy;
+}
 
 async function requireUser() {
   if (!supabaseClient) return null;
@@ -426,14 +486,94 @@ async function insertRow(table, row) {
   return true;
 }
 
+async function insertRowReturning(table, row) {
+  const user = await requireUser();
+  if (!user) { showMessage(txt('mustLogin'), 'error'); return null; }
+
+  const { data, error } = await supabaseClient
+    .from(table)
+    .insert(row)
+    .select()
+    .single();
+
+  if (error) {
+    showMessage(`${txt('couldNotSave')} ${table}: ${error.message}`, 'error');
+    return null;
+  }
+
+  return data;
+}
+
+function parseGoalScorers(rawText) {
+  const text = String(rawText || '').trim();
+  if (!text) return [];
+
+  return text
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const pieces = part.split(':');
+      const playerName = String(pieces[0] || '').trim();
+      const goals = pieces.length > 1 ? Number(pieces[1]) : 1;
+      return {
+        player_name: playerName,
+        goals: Number.isFinite(goals) && goals > 0 ? Math.floor(goals) : 1
+      };
+    })
+    .filter(row => row.player_name);
+}
+
+async function saveGoalScorers(matchType, matchId, rawText) {
+  const scorers = parseGoalScorers(rawText);
+  if (!scorers.length) return true;
+
+  const rows = scorers.map((scorer) => ({
+    match_type: matchType,
+    match_id: matchId,
+    player_name: scorer.player_name,
+    goals: scorer.goals
+  }));
+
+  const { error } = await supabaseClient.from('goal_scorers').insert(rows);
+  if (error) {
+    showMessage(`${txt('couldNotSave')} goal_scorers: ${error.message}`, 'error');
+    return false;
+  }
+  return true;
+}
+
+async function deleteRelatedGoalScorers(table, id) {
+  if (!supabaseClient) return;
+  if (table !== 'practice_matches' && table !== 'external_matches') return;
+
+  const matchType = table === 'practice_matches' ? 'practice' : 'external';
+  const { error } = await supabaseClient
+    .from('goal_scorers')
+    .delete()
+    .eq('match_type', matchType)
+    .eq('match_id', id);
+
+  if (error) console.error('Could not delete related goal scorers:', error);
+}
+
 async function deleteRow(table, id) {
   const user = await requireUser();
   if (!user) { showMessage(txt('mustLogin'), 'error'); return false; }
+
+  await deleteRelatedGoalScorers(table, id);
+
   const { error } = await supabaseClient.from(table).delete().eq('id', id);
   if (error) { showMessage(`${txt('couldNotDelete')} ${table}: ${error.message}`, 'error'); return false; }
   showMessage(txt('deleted'), 'success');
   await loadAllData();
   return true;
+}
+
+function cleanMatchRow(row) {
+  const copy = { ...row };
+  delete copy.goal_scorers;
+  return copy;
 }
 
 function bindEvents() {
@@ -459,28 +599,42 @@ function bindEvents() {
     event.preventDefault();
     const row = castNumericFields(formToObject(event.target), ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical']);
     const ok = await insertRow('players', row);
-    if (ok) { event.target.reset(); showMessage('Player saved.', 'success'); await loadAllData(); }
+    if (ok) { event.target.reset(); showMessage(txt('playerSaved'), 'success'); await loadAllData(); }
   });
 
   if (exists('practice-form')) $('practice-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    const row = castNumericFields(formToObject(event.target), ['home_score', 'away_score']);
-    const ok = await insertRow('practice_matches', row);
-    if (ok) { event.target.reset(); showMessage('Practice match saved.', 'success'); await loadAllData(); }
+    const raw = formToObject(event.target);
+    const goalScorersText = raw.goal_scorers || '';
+    const row = cleanMatchRow(castNumericFields(raw, ['home_score', 'away_score']));
+    const insertedMatch = await insertRowReturning('practice_matches', row);
+    if (insertedMatch) {
+      await saveGoalScorers('practice', insertedMatch.id, goalScorersText);
+      event.target.reset();
+      showMessage(txt('practiceSaved'), 'success');
+      await loadAllData();
+    }
   });
 
   if (exists('external-form')) $('external-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-    const row = castNumericFields(formToObject(event.target), ['our_score', 'opponent_score']);
-    const ok = await insertRow('external_matches', row);
-    if (ok) { event.target.reset(); showMessage('Club match saved.', 'success'); await loadAllData(); }
+    const raw = formToObject(event.target);
+    const goalScorersText = raw.goal_scorers || '';
+    const row = cleanMatchRow(castNumericFields(raw, ['our_score', 'opponent_score']));
+    const insertedMatch = await insertRowReturning('external_matches', row);
+    if (insertedMatch) {
+      await saveGoalScorers('external', insertedMatch.id, goalScorersText);
+      event.target.reset();
+      showMessage(txt('clubSaved'), 'success');
+      await loadAllData();
+    }
   });
 
   document.addEventListener('click', async (event) => {
     const btn = event.target.closest('.delete-btn');
     if (!btn) return;
     const table = btn.dataset.table;
-    const id = Number(btn.dataset.id);
+    const id = btn.dataset.id;
     const confirmed = window.confirm(txt('deleteConfirm'));
     if (!confirmed) return;
     await deleteRow(table, id);
