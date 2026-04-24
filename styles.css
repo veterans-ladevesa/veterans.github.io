@@ -579,6 +579,40 @@ select[multiple] {
   justify-content: flex-end;
 }
 
+.bar-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 48px;
+  gap: 12px;
+  align-items: center;
+}
+
+.bar-label {
+  font-weight: 700;
+}
+
+.bar-track {
+  background: #e7f0f7;
+  border-radius: 999px;
+  overflow: hidden;
+  height: 18px;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(135deg, var(--orange), var(--primary));
+  border-radius: 999px;
+}
+
+.bar-value {
+  font-weight: 700;
+  text-align: right;
+}
+
 /* Responsive */
 @media (max-width: 980px) {
   .hero-inner,
