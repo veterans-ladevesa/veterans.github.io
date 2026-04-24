@@ -1,26 +1,17 @@
-# Verterans de la Devesa - v3
+# Verterans de la Devesa — versión bilingüe
 
-This version separates the public website from the admin tools.
+Idioma por defecto: español.
 
-## Files
-- `index.html` public club page
-- `admin.html` admin login + add/delete tools
-- `app.js` shared logic for both pages
-- `styles.css` shared styles
-- `schema.sql` Supabase schema and policies
-- `config.js.template` copy to `config.js`
+Archivos:
+- `index.html` página pública en español
+- `index-en.html` página pública en inglés
+- `admin.html` administración en español
+- `admin-en.html` administración en inglés
+- `app.js` lógica compartida, con drag-and-drop e mensajes bilingües
+- `styles.css` diseño compartido
+- `config.js.template` copia este archivo como `config.js` y añade tu URL y anon key de Supabase
 
-## New features
-- separate admin page
-- delete buttons for players, practice matches, and club matches
-- more graphic public home page
-
-## Setup
-1. Copy `config.js.template` to `config.js`
-2. Put your Supabase URL and anon key in `config.js`
-3. Run `schema.sql` in Supabase SQL editor
-4. Upload files to GitHub Pages
-5. Use `admin.html` for data management
-
-## Important
-If you already created tables earlier, run the new `schema.sql` again so the missing columns and policies are aligned.
+Importante:
+- Mantén los nombres de imagen `team-foto.jpeg` y `logo-placeholder.jpeg`.
+- No subas la service role key de Supabase.
+- Después de reemplazar archivos en GitHub, usa Ctrl+Shift+R.

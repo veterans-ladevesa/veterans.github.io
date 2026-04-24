@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verterans de la Devesa</title>
-  <meta name="description" content="Página oficial de Verterans de la Devesa: plantilla, historial de partidos y predictor basado en jugadores." />
+  <meta name="description" content="Official club page for Verterans de la Devesa: squad, match history, and a simple player-based match predictor." />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -13,16 +13,16 @@
   <div class="hero-overlay">
     <div class="hero-inner">
       <div class="hero-text">
-        <p class="eyebrow">Club de fútbol veterano</p>
+        <p class="eyebrow">Veterans football club</p>
         <h1>Verterans de la Devesa</h1>
         <p class="lead">
-          Historial de partidos, gestión de plantilla y análisis de rendimiento para nuestro club.
+          Match history, squad management, and performance insights for our club.
         </p>
         <div class="cta-row">
-          <a href="#results" class="btn primary">Ver resultados</a>
-          <a href="#predictor" class="btn secondary">Probar predictor</a>
-          <a href="admin.html" class="btn ghost">Área de administración</a>
-          <span class="language-switch"><a class="active" href="index.html">ES</a><a href="index-en.html">EN</a></span>
+          <a href="#results" class="btn primary">See Results</a>
+          <a href="#predictor" class="btn secondary">Try Predictor</a>
+          <a href="admin-en.html" class="btn ghost">Admin Area</a>
+          <span class="language-switch"><a href="index.html">ES</a><a class="active" href="index-en.html">EN</a></span>
         </div>
       </div>
 
@@ -37,42 +37,42 @@
     <section class="feature-banner card">
       <div class="feature-icon">⚽</div>
       <div>
-        <h2>Espacio del club</h2>
-        <p class="muted">La página principal es pública. Las herramientas de administración están en una página separada para que el sitio tenga un aspecto más profesional.</p>
+        <h2>Club hub</h2>
+        <p class="muted">The main page is public. The admin tools live on a separate page so the site looks more like a real club website.</p>
       </div>
     </section>
 
     <section class="stats-grid">
       <article class="stat-card gradient-blue">
-        <span class="stat-label">Jugadores</span>
+        <span class="stat-label">Players</span>
         <strong id="players-count">0</strong>
       </article>
       <article class="stat-card gradient-orange">
-        <span class="stat-label">Partidos de entrenamiento</span>
+        <span class="stat-label">Practice matches</span>
         <strong id="practice-count">0</strong>
       </article>
       <article class="stat-card gradient-green">
-        <span class="stat-label">Partidos del club</span>
+        <span class="stat-label">Club matches</span>
         <strong id="external-count">0</strong>
       </article>
       <article class="stat-card gradient-dark">
-        <span class="stat-label">Último resultado</span>
+        <span class="stat-label">Latest result</span>
         <strong id="latest-result">-</strong>
       </article>
     </section>
 
     <section class="highlights-grid">
       <article class="card accent-card accent-orange">
-        <h3>Naranja vs Verde</h3>
-        <p class="muted">Registra los partidos internos de entrenamiento separados de los amistosos o partidos contra otros clubes.</p>
+        <h3>Orange vs Green</h3>
+        <p class="muted">Track internal training games separately from official or friendly club fixtures.</p>
       </article>
       <article class="card accent-card accent-green">
-        <h3>Partidos externos</h3>
-        <p class="muted">Guarda resultados contra otros clubes con campo, competición y notas.</p>
+        <h3>External fixtures</h3>
+        <p class="muted">Store results against other clubs with venue, competition, and notes.</p>
       </article>
       <article class="card accent-card accent-blue">
-        <h3>Predictor de alineaciones</h3>
-        <p class="muted">Estima las probabilidades del partido a partir de los atributos de los jugadores y pesos por posición.</p>
+        <h3>Lineup predictor</h3>
+        <p class="muted">Estimate match chances from player attributes and positional weights.</p>
       </article>
     </section>
 
@@ -80,16 +80,16 @@
       <div class="card">
         <div class="section-head stacked-mobile">
           <div>
-            <h2>Plantilla</h2>
-            <p class="muted">Valoraciones estilo FIFA usadas por el predictor.</p>
+            <h2>Squad</h2>
+            <p class="muted">FIFA-style player ratings used for the predictor.</p>
           </div>
-          <button id="refresh-players" class="btn small">Actualizar datos</button>
+          <button id="refresh-players" class="btn small">Refresh data</button>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Nombre</th>
+                <th>Name</th>
                 <th>Pos</th>
                 <th>PAC</th>
                 <th>SHO</th>
@@ -105,27 +105,27 @@
       </div>
 
       <div class="card" id="predictor">
-        <h2>Predictor de partido</h2>
-        <p class="muted">Elige dos alineaciones. El modelo estima la fuerza de cada equipo y las probabilidades de victoria/empate/derrota.</p>
+        <h2>Match predictor</h2>
+        <p class="muted">Pick two lineups. The model estimates team strength and win/draw/loss probabilities.</p>
         <div class="predictor-grid">
           <div>
-            <label for="home-team-name">Equipo 1</label>
+            <label for="home-team-name">Team 1</label>
             <input id="home-team-name" value="Orange" />
-            <label for="home-lineup">Alineación</label>
+            <label for="home-lineup">Lineup</label>
             <div id="home-lineup" class="lineup-box"></div>
           </div>
           <div>
-            <label for="away-team-name">Equipo 2</label>
+            <label for="away-team-name">Team 2</label>
             <input id="away-team-name" value="Green" />
-            <label for="away-lineup">Alineación</label>
+            <label for="away-lineup">Lineup</label>
             <div id="away-lineup" class="lineup-box"></div>
           </div>
         </div>
         <div class="predictor-actions">
-          <button id="run-prediction" class="btn primary">Predecir partido</button>
-          <button id="fill-practice-lineups" class="btn secondary">Auto-fill Naranja vs Verde</button>
+          <button id="run-prediction" class="btn primary">Predict match</button>
+          <button id="fill-practice-lineups" class="btn secondary">Auto-fill Orange vs Green</button>
         </div>
-        <div id="prediction-result" class="result-box">Coloca jugadores en ambos equipos y ejecuta el predictor.</div>
+        <div id="prediction-result" class="result-box">Select players on both sides and run the predictor.</div>
       </div>
     </section>
 
@@ -133,20 +133,20 @@
       <div class="card">
         <div class="section-head stacked-mobile">
           <div>
-            <h2>Partidos de entrenamiento</h2>
-            <p class="muted">Internal sessions: Naranja vs Verde.</p>
+            <h2>Practice matches</h2>
+            <p class="muted">Internal sessions: Orange vs Green.</p>
           </div>
-          <span class="tag orange">Entrenamientos</span>
+          <span class="tag orange">Training games</span>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Local</th>
-                <th>Resultado</th>
-                <th>Visitante</th>
-                <th>Notas</th>
+                <th>Date</th>
+                <th>Home</th>
+                <th>Score</th>
+                <th>Away</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody id="practice-body"></tbody>
@@ -157,20 +157,20 @@
       <div class="card">
         <div class="section-head stacked-mobile">
           <div>
-            <h2>Partidos contra otros clubes</h2>
-            <p class="muted">Partidos oficiales o amistosos contra otros equipos.</p>
+            <h2>Matches vs other clubs</h2>
+            <p class="muted">Official or friendly matches against outside teams.</p>
           </div>
-          <span class="tag green">Partidos externos</span>
+          <span class="tag green">External fixtures</span>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Rival</th>
-                <th>Campo</th>
-                <th>Resultado</th>
-                <th>Competición</th>
+                <th>Date</th>
+                <th>Opponent</th>
+                <th>Venue</th>
+                <th>Score</th>
+                <th>Competition</th>
               </tr>
             </thead>
             <tbody id="external-body"></tbody>
@@ -182,8 +182,8 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>Verterans de la Devesa · Sitio público</p>
-      <span><a href="admin.html" class="footer-link">Abrir administración</a> · <a href="index-en.html" class="footer-link">English</a></span>
+      <p>Verterans de la Devesa · Public site</p>
+      <span><a href="admin-en.html" class="footer-link">Open admin page</a> · <a href="index.html" class="footer-link">Español</a></span>
     </div>
   </footer>
 

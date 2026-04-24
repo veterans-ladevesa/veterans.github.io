@@ -30,6 +30,63 @@ const positionWeights = {
   ST:  { pace: 0.18, shooting: 0.30, passing: 0.10, dribbling: 0.18, defending: 0.02, physical: 0.16, base: 0.06 }
 };
 
+
+
+const currentLang = document.documentElement.lang && document.documentElement.lang.startsWith('es') ? 'es' : 'en';
+const i18n = {
+  en: {
+    signedInAs: 'Signed in as',
+    notSignedIn: 'Not signed in',
+    deleteText: 'Delete',
+    noPlayers: 'No players yet.',
+    noPractice: 'No practice matches yet.',
+    noClub: 'No club matches yet.',
+    loginFailed: 'Login failed',
+    loginSuccess: 'Login successful. You can now manage club data.',
+    logoutSuccess: 'You have been logged out.',
+    needConfig: 'Supabase is not configured yet. Add your project URL and anon key in config.js first.',
+    enterCredentials: 'Enter your admin email and password first.',
+    mustLogin: 'You must log in first.',
+    couldNotSave: 'Could not save to',
+    couldNotDelete: 'Could not delete from',
+    deleted: 'Entry deleted.',
+    deleteConfirm: 'Delete this entry?',
+    demoMode: 'Site is running in demo mode. Create config.js and connect Supabase to enable real data and admin login.',
+    signInManage: 'Sign in to manage club data.',
+    selectBoth: 'Select players for both teams first.',
+    strength: 'Strength',
+    probabilities: 'Probabilities',
+    win: 'win',
+    draw: 'Draw'
+  },
+  es: {
+    signedInAs: 'Sesión iniciada como',
+    notSignedIn: 'Sesión no iniciada',
+    deleteText: 'Eliminar',
+    noPlayers: 'Todavía no hay jugadores.',
+    noPractice: 'Todavía no hay partidos de entrenamiento.',
+    noClub: 'Todavía no hay partidos del club.',
+    loginFailed: 'Error al iniciar sesión',
+    loginSuccess: 'Inicio de sesión correcto. Ya puedes gestionar los datos del club.',
+    logoutSuccess: 'Has cerrado sesión.',
+    needConfig: 'Supabase todavía no está configurado. Añade la URL del proyecto y la anon key en config.js.',
+    enterCredentials: 'Introduce el correo y la contraseña de administrador.',
+    mustLogin: 'Primero debes iniciar sesión.',
+    couldNotSave: 'No se pudo guardar en',
+    couldNotDelete: 'No se pudo eliminar de',
+    deleted: 'Entrada eliminada.',
+    deleteConfirm: '¿Eliminar esta entrada?',
+    demoMode: 'El sitio está en modo demo. Crea config.js y conecta Supabase para activar datos reales y el acceso de administración.',
+    signInManage: 'Inicia sesión para gestionar los datos del club.',
+    selectBoth: 'Coloca jugadores en ambos equipos primero.',
+    strength: 'Fuerza',
+    probabilities: 'Probabilidades',
+    win: 'gana',
+    draw: 'Empate'
+  }
+};
+const txt = (key) => (i18n[currentLang] && i18n[currentLang][key]) || i18n.en[key] || key;
+
 const config = window.APP_CONFIG || {};
 const hasSupabaseConfig = Boolean(config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes('YOUR_PROJECT'));
 const supabaseClient = hasSupabaseConfig ? window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) : null;
@@ -43,7 +100,6 @@ let externalCache = [...localExternalMatches];
 const $ = (id) => document.getElementById(id);
 const exists = (id) => Boolean($(id));
 const isAdminPage = exists('admin-panels');
-const playerKey = (player) => String(player?.id ?? player?.name ?? '');
 
 function showMessage(text, type = 'muted') {
   const box = $('admin-message');
@@ -53,128 +109,265 @@ function showMessage(text, type = 'muted') {
 }
 
 function updateAuthUI(user) {
-  if (exists('auth-status')) $('auth-status').textContent = user?.email ? `Signed in as ${user.email}` : 'Not signed in';
-  if (exists('admin-panels')) $('admin-panels').classList.toggle('hidden', !user);
+  if (exists('auth-status')) {
+    $('auth-status').textContent = user?.email ? `${txt('signedInAs')} ${user.email}` : txt('notSignedIn');
+  }
+  if (exists('admin-panels')) {
+    $('admin-panels').classList.toggle('hidden', !user);
+  }
 }
 
 function playerScore(player) {
   const w = positionWeights[player.position] || positionWeights.CM;
-  const base = Number(player.pace || 0) * w.pace + Number(player.shooting || 0) * w.shooting + Number(player.passing || 0) * w.passing + Number(player.dribbling || 0) * w.dribbling + Number(player.defending || 0) * w.defending + Number(player.physical || 0) * w.physical + 100 * w.base;
-  const hasLastScore = player.last_score !== null && player.last_score !== undefined && player.last_score !== '';
-  const performanceBoost = hasLastScore ? (Number(player.last_score) - 5) * 2 : 0;
+
+  const base =
+    player.pace * w.pace +
+    player.shooting * w.shooting +
+    player.passing * w.passing +
+    player.dribbling * w.dribbling +
+    player.defending * w.defending +
+    player.physical * w.physical +
+    100 * w.base;
+
+  let performanceBoost = 0;
+
+  if (
+    player.last_score !== null &&
+    player.last_score !== undefined &&
+    player.last_score !== ''
+  ) {
+    performanceBoost = (Number(player.last_score) - 5) * 2;
+  }
+
   return base + performanceBoost;
+}
+
+function softmax3(home, draw, away) {
+  const exps = [home, draw, away].map(Math.exp);
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map((value) => value / sum);
 }
 
 function teamStrength(players) {
   if (!players.length) return 0;
+
   const scores = players.map(playerScore);
   const avg = scores.reduce((a, b) => a + b, 0) / players.length;
+
   const hasGK = players.some(p => p.position === 'GK');
-  const defenders = players.filter(p => ['CB', 'LB', 'RB'].includes(p.position)).length;
-  const midfielders = players.filter(p => ['CM', 'CDM', 'CAM'].includes(p.position)).length;
-  const attackers = players.filter(p => ['LW', 'RW', 'ST'].includes(p.position)).length;
+  const defenders = players.filter(p => ['CB','LB','RB'].includes(p.position)).length;
+  const midfielders = players.filter(p => ['CM','CDM','CAM'].includes(p.position)).length;
+  const attackers = players.filter(p => ['LW','RW','ST'].includes(p.position)).length;
+
   let structureScore = 0;
+
   if (hasGK) structureScore += 5;
   if (defenders >= 2) structureScore += 4;
   if (midfielders >= 2) structureScore += 3;
   if (attackers >= 1) structureScore += 2;
+
   if (!hasGK) structureScore -= 8;
+
   const diversity = new Set(players.map(p => p.position)).size;
   const chemistry = diversity >= 5 ? 2 : 0;
+
   return avg + structureScore + chemistry;
 }
 
 function predictMatch(homePlayers, awayPlayers) {
   const hs = teamStrength(homePlayers);
   const as = teamStrength(awayPlayers);
+
   const diff = (hs - as) / 10;
+
   const homeRaw = 1 / (1 + Math.exp(-diff));
   const awayRaw = 1 - homeRaw;
   const drawRaw = Math.max(0.15, 1 - Math.abs(diff));
+
   const total = homeRaw + awayRaw + drawRaw;
-  return { homeStrength: hs.toFixed(1), awayStrength: as.toFixed(1), pHome: ((homeRaw / total) * 100).toFixed(1), pDraw: ((drawRaw / total) * 100).toFixed(1), pAway: ((awayRaw / total) * 100).toFixed(1) };
+
+  return {
+    homeStrength: hs.toFixed(1),
+    awayStrength: as.toFixed(1),
+    pHome: ((homeRaw / total) * 100).toFixed(1),
+    pDraw: ((drawRaw / total) * 100).toFixed(1),
+    pAway: ((awayRaw / total) * 100).toFixed(1)
+  };
 }
 
 function sortByDateDesc(items, key = 'match_date') { return [...items].sort((a, b) => new Date(b[key]) - new Date(a[key])); }
 
-function splitPlayersEvenly(players) {
+function enableLineupMoving() {
+  const home = $('home-lineup');
+  const away = $('away-lineup');
+
+  if (!home || !away) return;
+
+  home.ondblclick = () => {
+    Array.from(home.selectedOptions).forEach(option => away.appendChild(option));
+  };
+
+  away.ondblclick = () => {
+    Array.from(away.selectedOptions).forEach(option => home.appendChild(option));
+  };
+}
+
+function renderPlayers(players) {
+  $('players-body').innerHTML = players.map((p) => `
+    <tr>
+      <td>${p.name}</td>
+      <td>${p.position}</td>
+      <td>${p.pace}</td>
+      <td>${p.shooting}</td>
+      <td>${p.passing}</td>
+      <td>${p.dribbling}</td>
+      <td>${p.defending}</td>
+      <td>${p.physical}</td>
+    </tr>
+  `).join('');
+
   homeTeam = [];
   awayTeam = [];
-  players.forEach((p, i) => { if (i % 2 === 0) homeTeam.push(p); else awayTeam.push(p); });
+
+  players.forEach((p, i) => {
+    if (i % 2 === 0) homeTeam.push(p);
+    else awayTeam.push(p);
+  });
+
+  renderLineups();
+  $('players-count').textContent = players.length;
+}
+
+function renderLineups() {
+  const homeBox = $('home-lineup');
+  const awayBox = $('away-lineup');
+
+  homeBox.innerHTML = '';
+  awayBox.innerHTML = '';
+
+  homeTeam.forEach(player => {
+    homeBox.appendChild(createPlayerCard(player));
+  });
+
+  awayTeam.forEach(player => {
+    awayBox.appendChild(createPlayerCard(player));
+  });
+
+  enableDragAndDrop();
 }
 
 function createPlayerCard(player) {
   const div = document.createElement('div');
   div.className = 'player-card';
   div.draggable = true;
-  div.dataset.id = playerKey(player);
+  div.dataset.id = player.id;
+
   div.textContent = `${player.name} (${player.position})`;
-  div.addEventListener('dragstart', (event) => {
-    event.dataTransfer.setData('text/plain', div.dataset.id);
-    event.dataTransfer.effectAllowed = 'move';
-    div.classList.add('dragging');
-  });
-  div.addEventListener('dragend', () => div.classList.remove('dragging'));
+
   return div;
 }
 
-function setupDropZone(boxId) {
-  const box = $(boxId);
-  if (!box) return;
-  box.ondragover = (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; box.classList.add('drag-over'); };
-  box.ondragenter = (event) => { event.preventDefault(); box.classList.add('drag-over'); };
-  box.ondragleave = (event) => { if (!box.contains(event.relatedTarget)) box.classList.remove('drag-over'); };
-  box.ondrop = (event) => { event.preventDefault(); box.classList.remove('drag-over'); movePlayer(event.dataTransfer.getData('text/plain'), boxId); };
+function enableDragAndDrop() {
+  document.querySelectorAll('.player-card').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+  });
+
+  ['home-lineup', 'away-lineup'].forEach(id => {
+    const box = $(id);
+
+    box.addEventListener('dragover', (e) => {
+      e.preventDefault(); // REQUIRED
+    });
+
+    box.addEventListener('drop', (e) => {
+      e.preventDefault();
+
+      const playerId = Number(e.dataTransfer.getData('text/plain'));
+
+      movePlayer(playerId, id);
+    });
+  });
 }
 
-function renderLineups() {
-  const homeBox = $('home-lineup');
-  const awayBox = $('away-lineup');
-  if (!homeBox || !awayBox) return;
-  homeBox.innerHTML = '';
-  awayBox.innerHTML = '';
-  homeTeam.forEach(player => homeBox.appendChild(createPlayerCard(player)));
-  awayTeam.forEach(player => awayBox.appendChild(createPlayerCard(player)));
-  setupDropZone('home-lineup');
-  setupDropZone('away-lineup');
-}
-
-function movePlayer(id, targetBoxId) {
-  const draggedId = String(id);
-  const player = playersCache.find(p => playerKey(p) === draggedId);
+function movePlayer(playerId, targetBoxId) {
+  const player = playersCache.find(p => p.id === playerId);
   if (!player) return;
-  homeTeam = homeTeam.filter(p => playerKey(p) !== draggedId);
-  awayTeam = awayTeam.filter(p => playerKey(p) !== draggedId);
-  if (targetBoxId === 'home-lineup') homeTeam.push(player);
-  if (targetBoxId === 'away-lineup') awayTeam.push(player);
-  renderLineups();
-}
 
-function renderPlayers(players) {
-  if (exists('players-body')) {
-    $('players-body').innerHTML = players.map((p) => `<tr><td>${p.name}</td><td>${p.position}</td><td>${p.pace}</td><td>${p.shooting}</td><td>${p.passing}</td><td>${p.dribbling}</td><td>${p.defending}</td><td>${p.physical}</td></tr>`).join('');
+  // remove from both teams
+  homeTeam = homeTeam.filter(p => p.id !== playerId);
+  awayTeam = awayTeam.filter(p => p.id !== playerId);
+
+  // add to target team
+  if (targetBoxId === 'home-lineup') {
+    homeTeam.push(player);
+  } else {
+    awayTeam.push(player);
   }
-  if (exists('home-lineup') && exists('away-lineup')) { splitPlayersEvenly(players); renderLineups(); }
-  if (exists('players-count')) $('players-count').textContent = players.length;
-  if (exists('admin-players-list')) {
-    $('admin-players-list').innerHTML = players.map((p) => `<div class="manage-item"><h4>${p.name} (${p.position})</h4><p>PAC ${p.pace} · SHO ${p.shooting} · PAS ${p.passing} · DRI ${p.dribbling} · DEF ${p.defending} · PHY ${p.physical}</p><div class="item-actions"><button class="btn danger delete-btn" data-table="players" data-id="${p.id}">Delete</button></div></div>`).join('') || '<p class="muted">No players yet.</p>';
-  }
+
+  renderLineups(); // re-render UI
 }
 
 function renderPractice(matches) {
   const sorted = sortByDateDesc(matches);
-  if (exists('practice-body')) $('practice-body').innerHTML = sorted.map((m) => `<tr><td>${m.match_date}</td><td>${m.home_team}</td><td>${m.home_score} - ${m.away_score}</td><td>${m.away_team}</td><td>${m.notes || ''}</td></tr>`).join('');
+  if (exists('practice-body')) {
+    $('practice-body').innerHTML = sorted.map((m) => `
+      <tr><td>${m.match_date}</td><td>${m.home_team}</td><td>${m.home_score} - ${m.away_score}</td><td>${m.away_team}</td><td>${m.notes || ''}</td></tr>
+    `).join('');
+  }
   if (exists('practice-count')) $('practice-count').textContent = sorted.length;
   if (exists('hero-practice-count')) $('hero-practice-count').textContent = sorted.length;
-  if (exists('admin-practice-list')) $('admin-practice-list').innerHTML = sorted.map((m) => `<div class="manage-item"><h4>${m.home_team} ${m.home_score}-${m.away_score} ${m.away_team}</h4><p>${m.match_date}</p><p>${m.notes || ''}</p><div class="item-actions"><button class="btn danger delete-btn" data-table="practice_matches" data-id="${m.id}">Delete</button></div></div>`).join('') || '<p class="muted">No practice matches yet.</p>';
+  if (exists('admin-practice-list')) {
+    $('admin-practice-list').innerHTML = sorted.map((m) => `
+      <div class="manage-item">
+        <h4>${m.home_team} ${m.home_score}-${m.away_score} ${m.away_team}</h4>
+        <p>${m.match_date}</p>
+        <p>${m.notes || ''}</p>
+        <div class="item-actions"><button class="btn danger delete-btn" data-table="practice_matches" data-id="${m.id}">${txt('deleteText')}</button></div>
+      </div>
+    `).join('') || `<p class="muted">${txt('noPractice')}</p>`;
+  }
+}
+
+function enableLineupMoving() {
+  const home = $('home-lineup');
+  const away = $('away-lineup');
+
+  if (!home || !away) return;
+
+  home.ondblclick = function () {
+    Array.from(home.selectedOptions).forEach((option) => {
+      away.appendChild(option);
+    });
+  };
+
+  away.ondblclick = function () {
+    Array.from(away.selectedOptions).forEach((option) => {
+      home.appendChild(option);
+    });
+  };
 }
 
 function renderExternal(matches) {
   const sorted = sortByDateDesc(matches);
-  if (exists('external-body')) $('external-body').innerHTML = sorted.map((m) => `<tr><td>${m.match_date}</td><td>${m.opponent_name}</td><td>${m.venue}</td><td>${m.our_score} - ${m.opponent_score}</td><td>${m.competition || ''}</td></tr>`).join('');
+  if (exists('external-body')) {
+    $('external-body').innerHTML = sorted.map((m) => `
+      <tr><td>${m.match_date}</td><td>${m.opponent_name}</td><td>${m.venue}</td><td>${m.our_score} - ${m.opponent_score}</td><td>${m.competition || ''}</td></tr>
+    `).join('');
+  }
   if (exists('external-count')) $('external-count').textContent = sorted.length;
   if (exists('hero-external-count')) $('hero-external-count').textContent = sorted.length;
-  if (exists('admin-external-list')) $('admin-external-list').innerHTML = sorted.map((m) => `<div class="manage-item"><h4>VdlD ${m.our_score}-${m.opponent_score} ${m.opponent_name}</h4><p>${m.match_date} · ${m.venue}</p><p>${m.competition || ''}</p><div class="item-actions"><button class="btn danger delete-btn" data-table="external_matches" data-id="${m.id}">Delete</button></div></div>`).join('') || '<p class="muted">No club matches yet.</p>';
+  if (exists('admin-external-list')) {
+    $('admin-external-list').innerHTML = sorted.map((m) => `
+      <div class="manage-item">
+        <h4>VdlD ${m.our_score}-${m.opponent_score} ${m.opponent_name}</h4>
+        <p>${m.match_date} · ${m.venue}</p>
+        <p>${m.competition || ''}</p>
+        <div class="item-actions"><button class="btn danger delete-btn" data-table="external_matches" data-id="${m.id}">${txt('deleteText')}</button></div>
+      </div>
+    `).join('') || `<p class="muted">${txt('noClub')}</p>`;
+  }
 }
 
 function updateSummaryCards() {
@@ -182,7 +375,7 @@ function updateSummaryCards() {
   if (exists('latest-result')) $('latest-result').textContent = all.length ? all[0].text : '-';
 }
 
-async function fetchRows(table, fallback, orderCol, asc = false) {
+async function fetchRows(table, fallback, orderCol, asc=false) {
   if (!supabaseClient) return fallback;
   const { data, error } = await supabaseClient.from(table).select('*').order(orderCol, { ascending: asc });
   if (error) { console.error(`Fetch ${table} error:`, error); return fallback; }
@@ -193,34 +386,67 @@ async function loadAllData() {
   playersCache = await fetchRows('players', localPlayers, 'name', true);
   practiceCache = await fetchRows('practice_matches', localPracticeMatches, 'match_date', false);
   externalCache = await fetchRows('external_matches', localExternalMatches, 'match_date', false);
-  renderPlayers(playersCache);
-  renderPractice(practiceCache);
-  renderExternal(externalCache);
-  updateSummaryCards();
+  renderPlayers(playersCache); renderPractice(practiceCache); renderExternal(externalCache); updateSummaryCards();
 }
 
-function selectedPlayers(teamId) { return teamId === 'home-lineup' ? homeTeam : awayTeam; }
-function autoFillPracticeLineups() { if (!exists('home-lineup') || !exists('away-lineup')) return; splitPlayersEvenly(playersCache); renderLineups(); }
+function selectedPlayers(selectId) {
+  return selectId === 'home-lineup' ? homeTeam : awayTeam;
+}
+
+function autoFillPracticeLineups() {
+  if (!exists('home-lineup') || !exists('away-lineup')) return;
+  const half = Math.ceil(playersCache.length / 2);
+  Array.from($('home-lineup').options).forEach((option, idx) => { option.selected = idx < half; });
+  Array.from($('away-lineup').options).forEach((option, idx) => { option.selected = idx >= half; });
+}
 
 async function loginAdmin() {
-  if (!supabaseClient) { showMessage('Supabase is not configured yet. Add your project URL and anon key in config.js first.', 'error'); return; }
+  if (!supabaseClient) { showMessage(txt('needConfig'), 'error'); return; }
   const email = ($('admin-email')?.value || '').trim();
   const password = ($('admin-password')?.value || '').trim();
-  if (!email || !password) { showMessage('Enter your admin email and password first.', 'error'); return; }
+  if (!email || !password) { showMessage(txt('enterCredentials'), 'error'); return; }
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) { showMessage(`Login failed: ${error.message}`, 'error'); updateAuthUI(null); return; }
+  if (error) { showMessage(`${txt('loginFailed')}: ${error.message}`, 'error'); updateAuthUI(null); return; }
   const { data: sessionData } = await supabaseClient.auth.getSession();
   updateAuthUI(sessionData?.session?.user || null);
-  showMessage('Login successful. You can now manage club data.', 'success');
+  showMessage(txt('loginSuccess'), 'success');
 }
 
-async function logoutAdmin() { if (!supabaseClient) return; await supabaseClient.auth.signOut(); updateAuthUI(null); showMessage('You have been logged out.', 'muted'); }
-function formToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
-function castNumericFields(obj, fields) { const copy = { ...obj }; fields.forEach((field) => { if (copy[field] !== undefined && copy[field] !== '') copy[field] = Number(copy[field]); }); return copy; }
+async function logoutAdmin() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  updateAuthUI(null);
+  showMessage(txt('logoutSuccess'), 'muted');
+}
 
-async function requireUser() { if (!supabaseClient) return null; const { data } = await supabaseClient.auth.getSession(); const user = data?.session?.user || null; updateAuthUI(user); return user; }
-async function insertRow(table, row) { const user = await requireUser(); if (!user) { showMessage('You must log in first.', 'error'); return false; } const { error } = await supabaseClient.from(table).insert(row); if (error) { showMessage(`Could not save to ${table}: ${error.message}`, 'error'); return false; } return true; }
-async function deleteRow(table, id) { const user = await requireUser(); if (!user) { showMessage('You must log in first.', 'error'); return false; } const { error } = await supabaseClient.from(table).delete().eq('id', id); if (error) { showMessage(`Could not delete from ${table}: ${error.message}`, 'error'); return false; } showMessage('Entry deleted.', 'success'); await loadAllData(); return true; }
+function formToObject(form) { return Object.fromEntries(new FormData(form).entries()); }
+function castNumericFields(obj, fields) { const copy = { ...obj }; fields.forEach((field) => { if (copy[field] !== undefined) copy[field] = Number(copy[field]); }); return copy; }
+
+async function requireUser() {
+  if (!supabaseClient) return null;
+  const { data } = await supabaseClient.auth.getSession();
+  const user = data?.session?.user || null;
+  updateAuthUI(user);
+  return user;
+}
+
+async function insertRow(table, row) {
+  const user = await requireUser();
+  if (!user) { showMessage(txt('mustLogin'), 'error'); return false; }
+  const { error } = await supabaseClient.from(table).insert(row);
+  if (error) { showMessage(`${txt('couldNotSave')} ${table}: ${error.message}`, 'error'); return false; }
+  return true;
+}
+
+async function deleteRow(table, id) {
+  const user = await requireUser();
+  if (!user) { showMessage(txt('mustLogin'), 'error'); return false; }
+  const { error } = await supabaseClient.from(table).delete().eq('id', id);
+  if (error) { showMessage(`${txt('couldNotDelete')} ${table}: ${error.message}`, 'error'); return false; }
+  showMessage(txt('deleted'), 'success');
+  await loadAllData();
+  return true;
+}
 
 function bindEvents() {
   if (exists('refresh-players')) $('refresh-players').addEventListener('click', loadAllData);
@@ -235,26 +461,56 @@ function bindEvents() {
       const awayPlayers = selectedPlayers('away-lineup');
       const homeName = $('home-team-name').value || 'Team 1';
       const awayName = $('away-team-name').value || 'Team 2';
-      if (!homePlayers.length || !awayPlayers.length) { $('prediction-result').innerHTML = '<strong>Select players for both teams first.</strong>'; return; }
+      if (!homePlayers.length || !awayPlayers.length) { $('prediction-result').innerHTML = `<strong>${txt('selectBoth')}</strong>`; return; }
       const result = predictMatch(homePlayers, awayPlayers);
-      $('prediction-result').innerHTML = `<strong>${homeName} vs ${awayName}</strong><br>Strength: ${homeName} ${result.homeStrength} · ${awayName} ${result.awayStrength}<br>Probabilities: ${homeName} win ${result.pHome}% · Draw ${result.pDraw}% · ${awayName} win ${result.pAway}%`;
+      $('prediction-result').innerHTML = `<strong>${homeName} vs ${awayName}</strong><br>${txt('strength')}: ${homeName} ${result.homeStrength} · ${awayName} ${result.awayStrength}<br>${txt('probabilities')}: ${homeName} ${txt('win')} ${result.pHome}% · ${txt('draw')} ${result.pDraw}% · ${awayName} ${txt('win')} ${result.pAway}%`;
     });
   }
 
-  if (exists('player-form')) $('player-form').addEventListener('submit', async (event) => { event.preventDefault(); const row = castNumericFields(formToObject(event.target), ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical']); const ok = await insertRow('players', row); if (ok) { event.target.reset(); showMessage('Player saved.', 'success'); await loadAllData(); } });
-  if (exists('practice-form')) $('practice-form').addEventListener('submit', async (event) => { event.preventDefault(); const row = castNumericFields(formToObject(event.target), ['home_score', 'away_score']); const ok = await insertRow('practice_matches', row); if (ok) { event.target.reset(); showMessage('Practice match saved.', 'success'); await loadAllData(); } });
-  if (exists('external-form')) $('external-form').addEventListener('submit', async (event) => { event.preventDefault(); const row = castNumericFields(formToObject(event.target), ['our_score', 'opponent_score']); const ok = await insertRow('external_matches', row); if (ok) { event.target.reset(); showMessage('Club match saved.', 'success'); await loadAllData(); } });
+  if (exists('player-form')) $('player-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const row = castNumericFields(formToObject(event.target), ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical']);
+    const ok = await insertRow('players', row);
+    if (ok) { event.target.reset(); showMessage('Player saved.', 'success'); await loadAllData(); }
+  });
 
-  document.addEventListener('click', async (event) => { const btn = event.target.closest('.delete-btn'); if (!btn) return; const table = btn.dataset.table; const id = btn.dataset.id; if (!window.confirm('Delete this entry?')) return; await deleteRow(table, id); });
+  if (exists('practice-form')) $('practice-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const row = castNumericFields(formToObject(event.target), ['home_score', 'away_score']);
+    const ok = await insertRow('practice_matches', row);
+    if (ok) { event.target.reset(); showMessage('Practice match saved.', 'success'); await loadAllData(); }
+  });
+
+  if (exists('external-form')) $('external-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const row = castNumericFields(formToObject(event.target), ['our_score', 'opponent_score']);
+    const ok = await insertRow('external_matches', row);
+    if (ok) { event.target.reset(); showMessage('Club match saved.', 'success'); await loadAllData(); }
+  });
+
+  document.addEventListener('click', async (event) => {
+    const btn = event.target.closest('.delete-btn');
+    if (!btn) return;
+    const table = btn.dataset.table;
+    const id = Number(btn.dataset.id);
+    const confirmed = window.confirm(txt('deleteConfirm'));
+    if (!confirmed) return;
+    await deleteRow(table, id);
+  });
 }
 
 async function init() {
   bindEvents();
   await loadAllData();
-  if (!supabaseClient) { updateAuthUI(null); showMessage('Site is running in demo mode. Create config.js and connect Supabase to enable real data and admin login.', 'muted'); return; }
+  autoFillPracticeLineups();
+  if (!supabaseClient) {
+    updateAuthUI(null);
+    showMessage(txt('demoMode'), 'muted');
+    return;
+  }
   const { data } = await supabaseClient.auth.getSession();
   updateAuthUI(data?.session?.user || null);
-  if (isAdminPage && !data?.session?.user) showMessage('Sign in to manage club data.', 'muted');
+  if (isAdminPage && !data?.session?.user) showMessage(txt('signInManage'), 'muted');
   supabaseClient.auth.onAuthStateChange((_event, session) => updateAuthUI(session?.user || null));
 }
 

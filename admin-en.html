@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verterans de la Devesa · Administración</title>
-  <meta name="description" content="Área de administración de Verterans de la Devesa." />
+  <title>Verterans de la Devesa · Admin</title>
+  <meta name="description" content="Admin area for Verterans de la Devesa." />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -12,13 +12,13 @@
   <header class="admin-topbar">
     <div class="container admin-topbar-inner">
       <div>
-        <p class="eyebrow dark">Área de administración</p>
-        <h1>Gestionar datos del club</h1>
+        <p class="eyebrow dark">Admin area</p>
+        <h1>Manage club data</h1>
       </div>
       <div class="cta-row">
-        <a href="index.html" class="btn secondary">Volver a la página principal</a>
-        <span class="language-switch dark"><a class="active" href="admin.html">ES</a><a href="admin-en.html">EN</a></span>
-        <span class="admin-status" id="auth-status">Sesión no iniciada</span>
+        <a href="index-en.html" class="btn secondary">Back to main page</a>
+        <span class="language-switch dark"><a href="admin.html">ES</a><a class="active" href="admin-en.html">EN</a></span>
+        <span class="admin-status" id="auth-status">Not signed in</span>
       </div>
     </div>
   </header>
@@ -27,35 +27,35 @@
     <section class="card">
       <div class="section-head stacked-mobile">
         <div>
-          <h2>Inicio de sesión de administrador</h2>
-          <p class="muted">Solo los administradores con sesión iniciada pueden añadir o eliminar jugadores y partidos.</p>
+          <h2>Admin login</h2>
+          <p class="muted">Only signed-in admins can add or delete players and match records.</p>
         </div>
       </div>
 
       <div class="admin-login-grid">
         <div>
-          <label for="admin-email">Correo de administrador</label>
+          <label for="admin-email">Admin email</label>
           <input id="admin-email" type="email" placeholder="you@example.com" />
         </div>
         <div>
-          <label for="admin-password">Contraseña</label>
-          <input id="admin-password" type="password" placeholder="Contraseña" />
+          <label for="admin-password">Password</label>
+          <input id="admin-password" type="password" placeholder="Password" />
         </div>
       </div>
       <div class="cta-row admin-actions">
-        <button id="login-btn" class="btn primary">Iniciar sesión</button>
-        <button id="logout-btn" class="btn secondary">Cerrar sesión</button>
+        <button id="login-btn" class="btn primary">Log in</button>
+        <button id="logout-btn" class="btn secondary">Log out</button>
       </div>
-      <div id="admin-message" class="result-box muted">Inicia sesión para gestionar jugadores y partidos.</div>
+      <div id="admin-message" class="result-box muted">Sign in to manage players and match entries.</div>
     </section>
 
     <section id="admin-panels" class="admin-panels hidden">
       <div class="grid-3">
         <form id="player-form" class="card inset-card">
-          <h3>Añadir jugador</h3>
-          <label>Nombre</label>
+          <h3>Add player</h3>
+          <label>Name</label>
           <input name="name" required />
-          <label>Posición</label>
+          <label>Position</label>
           <select name="position" required>
             <option value="GK">GK</option>
             <option value="CB">CB</option>
@@ -76,61 +76,61 @@
             <div><label>DEF</label><input name="defending" type="number" min="1" max="99" required /></div>
             <div><label>PHY</label><input name="physical" type="number" min="1" max="99" required /></div>
           </div>
-          <button class="btn primary full-width" type="submit">Guardar jugador</button>
+          <button class="btn primary full-width" type="submit">Save player</button>
         </form>
 
         <form id="practice-form" class="card inset-card">
-          <h3>Añadir partido de entrenamiento</h3>
-          <label>Fecha</label>
+          <h3>Add practice match</h3>
+          <label>Date</label>
           <input name="match_date" type="date" required />
-          <label>Equipo local</label>
+          <label>Home team</label>
           <input name="home_team" value="Orange" required />
-          <label>Equipo visitante</label>
+          <label>Away team</label>
           <input name="away_team" value="Green" required />
           <div class="mini-grid two-col">
-            <div><label>Goles local</label><input name="home_score" type="number" min="0" required /></div>
-            <div><label>Goles visitante</label><input name="away_score" type="number" min="0" required /></div>
+            <div><label>Home score</label><input name="home_score" type="number" min="0" required /></div>
+            <div><label>Away score</label><input name="away_score" type="number" min="0" required /></div>
           </div>
-          <label>Notas</label>
-          <input name="notes" placeholder="Partido interno amistoso" />
-          <button class="btn primary full-width" type="submit">Guardar partido de entrenamiento</button>
+          <label>Notes</label>
+          <input name="notes" placeholder="Friendly internal game" />
+          <button class="btn primary full-width" type="submit">Save practice match</button>
         </form>
 
         <form id="external-form" class="card inset-card">
-          <h3>Añadir partido del club</h3>
-          <label>Fecha</label>
+          <h3>Add club match</h3>
+          <label>Date</label>
           <input name="match_date" type="date" required />
-          <label>Rival</label>
+          <label>Opponent</label>
           <input name="opponent_name" required />
-          <label>Campo</label>
+          <label>Venue</label>
           <select name="venue" required>
-            <option value="Local">Local</option>
-            <option value="Visitante">Visitante</option>
+            <option value="Home">Home</option>
+            <option value="Away">Away</option>
             <option value="Neutral">Neutral</option>
           </select>
           <div class="mini-grid two-col">
-            <div><label>Nuestros goles</label><input name="our_score" type="number" min="0" required /></div>
-            <div><label>Rival score</label><input name="opponent_score" type="number" min="0" required /></div>
+            <div><label>Our score</label><input name="our_score" type="number" min="0" required /></div>
+            <div><label>Opponent score</label><input name="opponent_score" type="number" min="0" required /></div>
           </div>
-          <label>Competición</label>
-          <input name="competition" placeholder="Amistoso / Liga / Copa" />
-          <label>Notas</label>
-          <input name="notes" placeholder="Nota breve" />
-          <button class="btn primary full-width" type="submit">Guardar partido del club</button>
+          <label>Competition</label>
+          <input name="competition" placeholder="Friendly / League / Cup" />
+          <label>Notes</label>
+          <input name="notes" placeholder="Short note" />
+          <button class="btn primary full-width" type="submit">Save club match</button>
         </form>
       </div>
 
       <section class="grid-3 admin-lists">
         <div class="card">
-          <div class="section-head"><h3>Jugadores</h3><button id="refresh-admin-data" class="btn small">Actualizar</button></div>
+          <div class="section-head"><h3>Players</h3><button id="refresh-admin-data" class="btn small">Refresh</button></div>
           <div id="admin-players-list" class="list-stack"></div>
         </div>
         <div class="card">
-          <div class="section-head"><h3>Partidos de entrenamiento</h3></div>
+          <div class="section-head"><h3>Practice matches</h3></div>
           <div id="admin-practice-list" class="list-stack"></div>
         </div>
         <div class="card">
-          <div class="section-head"><h3>Partidos del club</h3></div>
+          <div class="section-head"><h3>Club matches</h3></div>
           <div id="admin-external-list" class="list-stack"></div>
         </div>
       </section>

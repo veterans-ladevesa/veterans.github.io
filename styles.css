@@ -60,6 +60,22 @@ img {
   z-index: 2;
 }
 
+box.addEventListener('dragenter', () => {
+  box.classList.add('drag-over');
+});
+
+box.addEventListener('dragleave', () => {
+  box.classList.remove('drag-over');
+});
+
+box.addEventListener('drop', (e) => {
+  e.preventDefault();
+  box.classList.remove('drag-over');
+
+  const playerId = Number(e.dataTransfer.getData('text/plain'));
+  movePlayer(playerId, id);
+});
+
 .hero-logo img {
   height: 80px;
   width: auto;
@@ -612,29 +628,33 @@ select[multiple] {
   }
 }
 
-/* Drag-and-drop lineup fixes */
-.lineup-box {
-  min-height: 250px;
-  border: 2px dashed #c8d4dc;
-  border-radius: 12px;
-  padding: 10px;
-  background: #f9fbfc;
-  transition: border-color 0.15s ease, background 0.15s ease;
+
+/* Language switch */
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
-.lineup-box.drag-over {
-  border-color: var(--primary);
+.language-switch.dark {
   background: #eef6ff;
+  border-color: var(--line);
 }
-.player-card {
-  padding: 9px 11px;
-  margin: 6px 0;
-  border-radius: 10px;
+.language-switch a {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+.language-switch a.active {
+  background: var(--primary);
+  color: white;
+}
+.language-switch:not(.dark) a.active {
   background: #ffffff;
-  border: 1px solid #d8e2e8;
-  cursor: grab;
-  user-select: none;
-}
-.player-card:active, .player-card.dragging {
-  cursor: grabbing;
-  opacity: 0.65;
+  color: var(--primary);
 }
