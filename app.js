@@ -65,7 +65,9 @@ const i18n = {
     draw: 'Draw',
     playerSaved: 'Player saved.',
     practiceSaved: 'Practice match saved.',
-    clubSaved: 'Club match saved.'
+    clubSaved: 'Club match saved.',
+    greenTeam: 'Green',
+    orangeTeam: 'Orange'
   },
   es: {
     signedInAs: 'Sesión iniciada como',
@@ -94,24 +96,12 @@ const i18n = {
     draw: 'Empate',
     playerSaved: 'Jugador guardado.',
     practiceSaved: 'Partido de entrenamiento guardado.',
-    clubSaved: 'Partido del club guardado.'
+    clubSaved: 'Partido del club guardado.',
+    greenTeam: 'Verde',
+    orangeTeam: 'Naranja'
   }
 };
 const txt = (key) => (i18n[currentLang] && i18n[currentLang][key]) || i18n.en[key] || key;
-
-function practiceDisplayNames() {
-  return currentLang === 'es'
-    ? { home: 'Naranja', away: 'Verde' }
-    : { home: 'Orange', away: 'Green' };
-}
-
-function practiceHomeScore(match) {
-  return match.home_score ?? match.orange_score ?? 0;
-}
-
-function practiceAwayScore(match) {
-  return match.away_score ?? match.green_score ?? 0;
-}
 
 const config = window.APP_CONFIG || {};
 const hasSupabaseConfig = Boolean(config.SUPABASE_URL && config.SUPABASE_ANON_KEY && !config.SUPABASE_URL.includes('YOUR_PROJECT'));
@@ -340,28 +330,46 @@ function movePlayer(id, targetBoxId) {
   renderLineups();
 }
 
+function practiceTeams() {
+  return {
+    home: currentLang === 'es' ? 'Verde' : 'Green',
+    away: currentLang === 'es' ? 'Naranja' : 'Orange'
+  };
+}
+
+function practiceDisplay(match) {
+  const teams = practiceTeams();
+  const rawHome = match.home_team === null || match.home_team === undefined ? '' : String(match.home_team);
+  const rawAway = match.away_team === null || match.away_team === undefined ? '' : String(match.away_team);
+  return {
+    homeTeam: rawHome && rawHome !== 'null' ? rawHome : teams.home,
+    awayTeam: rawAway && rawAway !== 'null' ? rawAway : teams.away,
+    homeScore: Number.isFinite(Number(match.home_score)) ? Number(match.home_score) : 0,
+    awayScore: Number.isFinite(Number(match.away_score)) ? Number(match.away_score) : 0
+  };
+}
+
 function renderPractice(matches) {
   const sorted = sortByDateDesc(matches);
-  const names = practiceDisplayNames();
-
   if (exists('practice-body')) {
-    $('practice-body').innerHTML = sorted.map((m) => `
-      <tr><td>${m.match_date}</td><td>${names.home}</td><td>${practiceHomeScore(m)} - ${practiceAwayScore(m)}</td><td>${names.away}</td><td>${m.notes || ''}</td></tr>
-    `).join('');
+    $('practice-body').innerHTML = sorted.map((m) => {
+      const d = practiceDisplay(m);
+      return `<tr><td>${m.match_date}</td><td>${d.homeTeam}</td><td>${d.homeScore} - ${d.awayScore}</td><td>${d.awayTeam}</td><td>${m.notes || ''}</td></tr>`;
+    }).join('');
   }
-
   if (exists('practice-count')) $('practice-count').textContent = sorted.length;
   if (exists('hero-practice-count')) $('hero-practice-count').textContent = sorted.length;
-
   if (exists('admin-practice-list')) {
-    $('admin-practice-list').innerHTML = sorted.map((m) => `
+    $('admin-practice-list').innerHTML = sorted.map((m) => {
+      const d = practiceDisplay(m);
+      return `
       <div class="manage-item">
-        <h4>${names.home} ${practiceHomeScore(m)}-${practiceAwayScore(m)} ${names.away}</h4>
+        <h4>${d.homeTeam} ${d.homeScore}-${d.awayScore} ${d.awayTeam}</h4>
         <p>${m.match_date}</p>
         <p>${m.notes || ''}</p>
         <div class="item-actions"><button class="btn danger delete-btn" data-table="practice_matches" data-id="${m.id}">${txt('deleteText')}</button></div>
-      </div>
-    `).join('') || `<p class="muted">${txt('noPractice')}</p>`;
+      </div>`;
+    }).join('') || `<p class="muted">${txt('noPractice')}</p>`;
   }
 }
 
@@ -423,18 +431,13 @@ function renderScorersChart(scorers) {
 }
 
 function updateSummaryCards() {
-  const names = practiceDisplayNames();
   const all = [
-    ...practiceCache.map((m) => ({
-      date: m.match_date,
-      text: `${names.home} ${practiceHomeScore(m)}-${practiceAwayScore(m)} ${names.away}`
-    })),
-    ...externalCache.map((m) => ({
-      date: m.match_date,
-      text: `Associació Futbol Veterans la Devesa ${m.our_score}-${m.opponent_score} ${m.opponent_name}`
-    }))
+    ...practiceCache.map((m) => {
+      const d = practiceDisplay(m);
+      return { date: m.match_date, text: `${d.homeTeam} ${d.homeScore}-${d.awayScore} ${d.awayTeam}` };
+    }),
+    ...externalCache.map((m) => ({ date: m.match_date, text: `Associació Futbol Veterans la Devesa ${m.our_score}-${m.opponent_score} ${m.opponent_name}` }))
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
   if (exists('latest-result')) $('latest-result').textContent = all.length ? all[0].text : '-';
 }
 
@@ -636,12 +639,15 @@ function bindEvents() {
     const raw = formToObject(event.target);
     const goalScorersText = raw.goal_scorers || '';
 
+    const greenScore = raw.green_score ?? raw.home_score ?? 0;
+    const orangeScore = raw.orange_score ?? raw.away_score ?? 0;
+
     const row = castNumericFields({
       match_date: raw.match_date,
-      home_team: 'Orange',
-      away_team: 'Green',
-      home_score: raw.home_score,
-      away_score: raw.away_score,
+      home_team: 'Green',
+      away_team: 'Orange',
+      home_score: greenScore,
+      away_score: orangeScore,
       notes: raw.notes || ''
     }, ['home_score', 'away_score']);
 

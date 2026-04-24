@@ -84,19 +84,18 @@
         </form>
 
         <form id="practice-form" class="card inset-card">
-          <h3>Add practice match</h3>
-          <p class="muted small-text">Fixed internal match: Orange vs Green.</p>
+          <h3>Add training match</h3>
           <label>Date</label>
           <input name="match_date" type="date" required />
           <div class="mini-grid two-col">
-            <div><label>Orange goals</label><input name="home_score" type="number" min="0" required /></div>
-            <div><label>Green goals</label><input name="away_score" type="number" min="0" required /></div>
+            <div><label>Green goals</label><input name="green_score" type="number" min="0" required /></div>
+            <div><label>Orange goals</label><input name="orange_score" type="number" min="0" required /></div>
           </div>
           <label>Notes</label>
-          <input name="notes" placeholder="Friendly internal game" />
+          <input name="notes" placeholder="Friendly internal match" />
           <label>Goal scorers</label>
           <input name="goal_scorers" placeholder="Example: Ruben:2, Carlos:1" />
-          <button class="btn primary full-width" type="submit">Save practice match</button>
+          <button class="btn primary full-width" type="submit">Save training match</button>
         </form>
 
         <form id="external-form" class="card inset-card">
