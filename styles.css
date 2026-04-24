@@ -49,14 +49,16 @@ img {
   margin: 0 auto;
 }
 
+.lineup-box.drag-over {
+  border-color: #0d4f8b;
+  background: #eef6ff;
+}
 .hero-logo {
   position: absolute;
   top: 20px;
   right: 30px;
   z-index: 2;
 }
-
-
 
 .hero-logo img {
   height: 80px;
@@ -80,39 +82,20 @@ img {
   border-radius: 12px;
   padding: 10px;
   background: #f9fbfc;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.lineup-box.drag-over {
-  border-color: #0d4f8b;
-  background: #eef6ff;
 }
 
 .player-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
+  padding: 8px 10px;
   margin: 6px 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: white;
   border: 1px solid #ddd;
   cursor: grab;
-  user-select: none;
 }
 
-.player-card span {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.player-card:active,
-.player-card.dragging {
+.player-card:active {
   cursor: grabbing;
-  opacity: 0.7;
 }
-
 
 /* Hero */
 .hero {
@@ -627,4 +610,31 @@ select[multiple] {
   .stacked-mobile {
     align-items: flex-start;
   }
+}
+
+/* Drag-and-drop lineup fixes */
+.lineup-box {
+  min-height: 250px;
+  border: 2px dashed #c8d4dc;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f9fbfc;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.lineup-box.drag-over {
+  border-color: var(--primary);
+  background: #eef6ff;
+}
+.player-card {
+  padding: 9px 11px;
+  margin: 6px 0;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #d8e2e8;
+  cursor: grab;
+  user-select: none;
+}
+.player-card:active, .player-card.dragging {
+  cursor: grabbing;
+  opacity: 0.65;
 }
