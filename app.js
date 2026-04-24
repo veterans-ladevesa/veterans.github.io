@@ -330,7 +330,7 @@ function renderPractice(matches) {
   const sorted = sortByDateDesc(matches);
   if (exists('practice-body')) {
     $('practice-body').innerHTML = sorted.map((m) => `
-      <tr><td>${m.match_date}</td><td>${m.home_team}</td><td>${m.home_score} - ${m.away_score}</td><td>${m.away_team}</td><td>${m.notes || ''}</td></tr>
+      <tr><td>${m.match_date}</td><td>Orange</td><td>${m.home_score} - ${m.away_score}</td><td>Green</td><td>${m.notes || ''}</td></tr>
     `).join('');
   }
   if (exists('practice-count')) $('practice-count').textContent = sorted.length;
@@ -338,7 +338,7 @@ function renderPractice(matches) {
   if (exists('admin-practice-list')) {
     $('admin-practice-list').innerHTML = sorted.map((m) => `
       <div class="manage-item">
-        <h4>${m.home_team} ${m.home_score}-${m.away_score} ${m.away_team}</h4>
+        <h4>Orange ${m.home_score}-${m.away_score} Green</h4>
         <p>${m.match_date}</p>
         <p>${m.notes || ''}</p>
         <div class="item-actions"><button class="btn danger delete-btn" data-table="practice_matches" data-id="${m.id}">${txt('deleteText')}</button></div>
@@ -405,7 +405,7 @@ function renderScorersChart(scorers) {
 }
 
 function updateSummaryCards() {
-  const all = [...practiceCache.map((m) => ({ date: m.match_date, text: `${m.home_team} ${m.home_score}-${m.away_score} ${m.away_team}` })), ...externalCache.map((m) => ({ date: m.match_date, text: `Associació Futbol Veterans la Devesa ${m.our_score}-${m.opponent_score} ${m.opponent_name}` }))].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const all = [...practiceCache.map((m) => ({ date: m.match_date, text: `Orange ${m.home_score}-${m.away_score} Green` })), ...externalCache.map((m) => ({ date: m.match_date, text: `Associació Futbol Veterans la Devesa ${m.our_score}-${m.opponent_score} ${m.opponent_name}` }))].sort((a, b) => new Date(b.date) - new Date(a.date));
   if (exists('latest-result')) $('latest-result').textContent = all.length ? all[0].text : '-';
 }
 
@@ -605,13 +605,19 @@ function bindEvents() {
   if (exists('practice-form')) $('practice-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const raw = formToObject(event.target);
-    const goalScorersText = raw.goal_scorers || '';
-    const row = cleanMatchRow(castNumericFields(raw, ['home_score', 'away_score']));
-    const insertedMatch = await insertRowReturning('practice_matches', row);
-    if (insertedMatch) {
-      await saveGoalScorers('practice', insertedMatch.id, goalScorersText);
+    const row = castNumericFields({
+      match_date: raw.match_date || raw.date,
+      home_team: 'Orange',
+      away_team: 'Green',
+      home_score: raw.home_score,
+      away_score: raw.away_score,
+      notes: raw.notes
+    }, ['home_score','away_score']);
+    const ok = await insertRow('practice_matches', row);
+    if (ok) {
+      // optional goal scorers handling if implemented elsewhere
       event.target.reset();
-      showMessage(txt('practiceSaved'), 'success');
+      showMessage(currentLang==='es' ? 'Partido de entrenamiento guardado.' : 'Training match saved.', 'success');
       await loadAllData();
     }
   });
